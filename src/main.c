@@ -23,14 +23,29 @@ usage(void)
 		"  lockbox key import <file|->                 Import public key into keyring\n"
 		"  lockbox key list                            List keys in keyring\n"
 		"  lockbox key fingerprint                     Show your fingerprint\n"
+		"  lockbox key search <query>                  Search keyring by name/fingerprint\n"
 		"  lockbox certify <fingerprint>               Certify a key (web of trust)\n"
-		"  lockbox trust <fingerprint>                 Show trust path to a key\n"
+		"  lockbox trust <fingerprint>                 Show trust path + score\n"
+		"  lockbox trust rank                          Rank all keys by trust score\n"
+		"  lockbox attest <fpr> <claim>                Attest identity/vouch for a key\n"
+		"  lockbox attestations <fpr>                  Show attestations for a key\n"
 		"  lockbox prove dns <domain>                  Generate DNS TXT proof\n"
 		"  lockbox prove https <domain>                Generate .well-known proof\n"
 		"  lockbox prove github <username>             Generate GitHub gist proof\n"
-		"  lockbox lookup <domain|github:user>         Discover keys via DNS/HTTPS/GitHub\n"
+		"  lockbox prove reddit <username>             Generate Reddit proof\n"
+		"  lockbox prove twitter <username>            Generate Twitter/X proof\n"
+		"  lockbox prove btc <address>                 Generate BTC address proof\n"
+		"  lockbox prove eth <address>                 Generate ETH address proof\n"
+		"  lockbox prove hn <username>                 Generate HackerNews proof\n"
+		"  lockbox lookup <domain|service:user>        Discover keys via DNS/HTTPS/services\n"
 		"  lockbox sigchain [show|verify]              Show or verify sigchain\n"
 		"  lockbox share <file> -r <fpr|domain>        Encrypt file for recipient\n"
+		"  lockbox keystore add <service> [--label <name>]\n"
+		"                                              Add key to encrypted keystore\n"
+		"  lockbox keystore list                       List keystore entries\n"
+		"  lockbox keystore show <id> [--secret]       Show keystore entry\n"
+		"  lockbox keystore remove <id>                Remove keystore entry\n"
+		"  lockbox keystore export <id>                Export public key from keystore\n"
 		"  lockbox dht publish                         Publish identity to DHT\n"
 		"  lockbox dht lookup <fingerprint>            Lookup key in DHT\n"
 		"\n", LB_VERSION);
@@ -136,6 +151,11 @@ main(int argc, char **argv)
 			return lb_key_list();
 		if (strcmp(sub, "fingerprint") == 0)
 			return lb_key_show_fingerprint();
+		if (strcmp(sub, "search") == 0) {
+			if (argc < 4)
+				lb_die("key search requires a query argument");
+			return lb_key_search(argv[3]);
+		}
 
 		lb_die("unknown key subcommand: %s", sub);
 	}
@@ -147,23 +167,35 @@ main(int argc, char **argv)
 		return lb_certify(argv[2]);
 	}
 
-	/* lockbox trust <fingerprint> */
+	/* lockbox trust <fingerprint|rank> */
 	if (strcmp(cmd, "trust") == 0) {
 		if (argc < 3)
-			lb_die("trust requires a fingerprint argument");
+			lb_die("trust requires a fingerprint or 'rank'");
+		if (strcmp(argv[2], "rank") == 0)
+			return lb_trust_rank();
 		return lb_trust_show(argv[2]);
 	}
 
 	if (strcmp(cmd, "prove") == 0) {
 		if (argc < 4)
-			lb_die("prove requires: prove <dns|https|github> <target>");
+			lb_die("prove requires: prove <type> <target>");
 		if (strcmp(argv[2], "dns") == 0)
 			return lb_prove_dns(argv[3]);
 		if (strcmp(argv[2], "https") == 0)
 			return lb_prove_https(argv[3]);
 		if (strcmp(argv[2], "github") == 0)
 			return lb_prove_github(argv[3]);
-		lb_die("unknown prove type: %s (use dns, https, or github)", argv[2]);
+		if (strcmp(argv[2], "reddit") == 0)
+			return lb_prove_reddit(argv[3]);
+		if (strcmp(argv[2], "twitter") == 0)
+			return lb_prove_twitter(argv[3]);
+		if (strcmp(argv[2], "btc") == 0)
+			return lb_prove_btc(argv[3]);
+		if (strcmp(argv[2], "eth") == 0)
+			return lb_prove_eth(argv[3]);
+		if (strcmp(argv[2], "hn") == 0)
+			return lb_prove_hn(argv[3]);
+		lb_die("unknown prove type: %s", argv[2]);
 	}
 
 	if (strcmp(cmd, "lookup") == 0) {
@@ -194,6 +226,61 @@ main(int argc, char **argv)
 		if (!file || !recipient)
 			lb_die("share requires: share <file> -r <recipient>");
 		return lb_share_encrypt(file, recipient);
+	}
+
+	/* lockbox attest <fingerprint> <claim> */
+	if (strcmp(cmd, "attest") == 0) {
+		if (argc < 4)
+			lb_die("attest requires: attest <fingerprint> <claim>");
+		return lb_attest(argv[2], argv[3]);
+	}
+
+	/* lockbox attestations <fingerprint> */
+	if (strcmp(cmd, "attestations") == 0) {
+		if (argc < 3)
+			lb_die("attestations requires a fingerprint argument");
+		return lb_attestations_show(argv[2]);
+	}
+
+	/* lockbox keystore <subcommand> */
+	if (strcmp(cmd, "keystore") == 0) {
+		if (argc < 3)
+			lb_die("keystore requires a subcommand: add, list, show, remove, export");
+		const char *sub = argv[2];
+
+		if (strcmp(sub, "add") == 0) {
+			if (argc < 4)
+				lb_die("keystore add requires a service argument");
+			const char *label = NULL;
+			for (int i = 4; i < argc; i++) {
+				const char *v;
+				if ((v = opt_arg(argc, argv, &i, "--label")) != NULL)
+					label = v;
+			}
+			return lb_keystore_add(argv[3], label);
+		}
+		if (strcmp(sub, "list") == 0)
+			return lb_keystore_list();
+		if (strcmp(sub, "show") == 0) {
+			if (argc < 4)
+				lb_die("keystore show requires an id argument");
+			bool secret = false;
+			if (argc > 4 && strcmp(argv[4], "--secret") == 0)
+				secret = true;
+			return lb_keystore_show(argv[3], secret);
+		}
+		if (strcmp(sub, "remove") == 0) {
+			if (argc < 4)
+				lb_die("keystore remove requires an id argument");
+			return lb_keystore_remove(argv[3]);
+		}
+		if (strcmp(sub, "export") == 0) {
+			if (argc < 4)
+				lb_die("keystore export requires an id argument");
+			return lb_keystore_export_pubkey(argv[3]);
+		}
+
+		lb_die("unknown keystore subcommand: %s", sub);
 	}
 
 	/* lockbox dht <publish|lookup> */

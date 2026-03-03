@@ -204,7 +204,7 @@ draw_dashboard(void)
 	/* Proven identities */
 	int idbox_y = boxy + 8;
 	if (tui.has_keys) {
-		draw_box(idbox_y, 2, 6, boxw, "Proven Identities");
+		draw_box(idbox_y, 2, 10, boxw, "Proven Identities");
 
 		char *sc_path = lb_data_path(LB_SIGCHAIN_FILE);
 		size_t sc_len;
@@ -237,9 +237,24 @@ draw_dashboard(void)
 					} else if (strcmp(type, LB_LINK_IDENTITY_GITHUB) == 0) {
 						domain = json_string_value(json_object_get(payload, "github"));
 						tag = "GitHub";
+					} else if (strcmp(type, LB_LINK_IDENTITY_REDDIT) == 0) {
+						domain = json_string_value(json_object_get(payload, "reddit"));
+						tag = "Reddit";
+					} else if (strcmp(type, LB_LINK_IDENTITY_TWITTER) == 0) {
+						domain = json_string_value(json_object_get(payload, "twitter"));
+						tag = "Twitter";
+					} else if (strcmp(type, LB_LINK_IDENTITY_BTC) == 0) {
+						domain = json_string_value(json_object_get(payload, "btc"));
+						tag = "BTC";
+					} else if (strcmp(type, LB_LINK_IDENTITY_ETH) == 0) {
+						domain = json_string_value(json_object_get(payload, "eth"));
+						tag = "ETH";
+					} else if (strcmp(type, LB_LINK_IDENTITY_HN) == 0) {
+						domain = json_string_value(json_object_get(payload, "hn"));
+						tag = "HN";
 					}
 
-					if (domain && line < 4) {
+					if (domain && line < 8) {
 						attron(COLOR_PAIR(C_GOOD));
 						mvprintw(idbox_y + 1 + line, 4, "[%s]", tag);
 						attroff(COLOR_PAIR(C_GOOD));
@@ -277,6 +292,7 @@ typedef struct {
 	char fp[LB_FINGERPRINT_HEX];
 	char label[64];
 	int  ncerts;
+	int  trust_score;
 } kr_display_t;
 
 static kr_display_t kr_entries[LB_MAX_KEYRING];
@@ -325,6 +341,7 @@ load_keyring(void)
 				kr_entries[kr_count].label[0] = '\0';
 			kr_entries[kr_count].ncerts = json_is_array(certs) ?
 				(int)json_array_size(certs) : 0;
+			kr_entries[kr_count].trust_score = lb_trust_score(fp);
 			kr_count++;
 		}
 		json_decref(obj);
@@ -345,7 +362,7 @@ draw_keyring(void)
 
 	/* Header */
 	attron(COLOR_PAIR(C_TITLE) | A_BOLD);
-	mvprintw(1, 4, "%-20s %-24s %s", "Fingerprint", "Label", "Certs");
+	mvprintw(1, 4, "%-20s %-24s %-6s %s", "Fingerprint", "Label", "Score", "Certs");
 	attroff(COLOR_PAIR(C_TITLE) | A_BOLD);
 	draw_hline(2, 4, boxw - 4);
 
@@ -358,13 +375,14 @@ draw_keyring(void)
 			attron(COLOR_PAIR(C_SELECTED) | A_REVERSE);
 		}
 
-		mvprintw(3 + i, 4, "%.16s...  %-24s",
+		mvprintw(3 + i, 4, "%.16s...  %-24s  %-3d",
 		         kr_entries[idx].fp,
-		         kr_entries[idx].label[0] ? kr_entries[idx].label : "(no label)");
+		         kr_entries[idx].label[0] ? kr_entries[idx].label : "(no label)",
+		         kr_entries[idx].trust_score);
 
 		if (kr_entries[idx].ncerts > 0) {
 			attron(COLOR_PAIR(C_GOOD));
-			printw(" [%d]", kr_entries[idx].ncerts);
+			printw("   [%d]", kr_entries[idx].ncerts);
 			attroff(COLOR_PAIR(C_GOOD));
 		}
 
@@ -445,6 +463,7 @@ draw_sigchain(void)
 		const char *icon = " ";
 		if (type) {
 			if (strstr(type, "key.create")) { color = C_GOOD; icon = "+"; }
+			else if (strstr(type, "key.attest")) { color = C_ACCENT; icon = "!"; }
 			else if (strstr(type, "certify")) { color = C_ACCENT; icon = "*"; }
 			else if (strstr(type, "prove")) { color = C_KEY; icon = "~"; }
 			else if (strstr(type, "revoke")) { color = C_WARN; icon = "x"; }

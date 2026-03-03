@@ -43,7 +43,13 @@
 #define LB_LINK_IDENTITY_DNS      "identity.prove.dns"
 #define LB_LINK_IDENTITY_HTTPS    "identity.prove.https"
 #define LB_LINK_IDENTITY_GITHUB   "identity.prove.github"
+#define LB_LINK_IDENTITY_REDDIT   "identity.prove.reddit"
+#define LB_LINK_IDENTITY_TWITTER  "identity.prove.twitter"
+#define LB_LINK_IDENTITY_BTC      "identity.prove.btc"
+#define LB_LINK_IDENTITY_ETH      "identity.prove.eth"
+#define LB_LINK_IDENTITY_HN       "identity.prove.hn"
 #define LB_LINK_IDENTITY_REVOKE   "identity.revoke"
+#define LB_LINK_KEY_ATTEST        "key.attest"
 
 /* Trust limits */
 #define LB_TRUST_MAX_DEPTH        4
@@ -68,6 +74,7 @@
 #define LB_PUBLIC_KEY_FILE   "public.key"
 #define LB_SIGCHAIN_FILE     "sigchain.json"
 #define LB_KEYRING_DIR       "keyring"
+#define LB_KEYSTORE_FILE     "keystore.lb"
 
 /* ── Types ────────────────────────────────────────────────────────── */
 
@@ -126,6 +133,7 @@ int     lb_key_import(const char *path);
 int     lb_key_list(void);
 int     lb_key_show_fingerprint(void);
 int     lb_show_id(void);
+int     lb_key_search(const char *query);
 
 /* Keyring helpers */
 int     lb_keyring_save(const uint8_t pk[LB_ED25519_PK_LEN], const char *label);
@@ -136,6 +144,12 @@ int     lb_keyring_save_json(const char *fp_hex, json_t *obj);
 /* Web of trust */
 int     lb_certify(const char *fingerprint);
 int     lb_trust_show(const char *fingerprint);
+int     lb_trust_score(const char *fingerprint);
+int     lb_trust_rank(void);
+
+/* Attestations */
+int     lb_attest(const char *fingerprint, const char *claim);
+int     lb_attestations_show(const char *fingerprint);
 
 /* ── crypto.c ─────────────────────────────────────────────────────── */
 
@@ -158,10 +172,23 @@ int     lb_sigchain_verify(void);
 int     lb_prove_dns(const char *domain);
 int     lb_prove_https(const char *domain);
 int     lb_prove_github(const char *username);
+int     lb_prove_reddit(const char *username);
+int     lb_prove_twitter(const char *username);
+int     lb_prove_btc(const char *address);
+int     lb_prove_eth(const char *address);
+int     lb_prove_hn(const char *username);
 
 /* ── discover.c ───────────────────────────────────────────────────── */
 
 int     lb_lookup(const char *target);
+
+/* ── keystore.c ───────────────────────────────────────────────────── */
+
+int     lb_keystore_add(const char *service, const char *label);
+int     lb_keystore_list(void);
+int     lb_keystore_show(const char *id, bool show_secret);
+int     lb_keystore_remove(const char *id);
+int     lb_keystore_export_pubkey(const char *id);
 
 /* ── share.c ──────────────────────────────────────────────────────── */
 

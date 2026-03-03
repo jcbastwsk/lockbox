@@ -21,6 +21,7 @@ SRCS    = $(SRCDIR)/main.c \
           $(SRCDIR)/identity.c \
           $(SRCDIR)/discover.c \
           $(SRCDIR)/share.c \
+          $(SRCDIR)/keystore.c \
           $(SRCDIR)/dht.c \
           $(SRCDIR)/tui.c
 
